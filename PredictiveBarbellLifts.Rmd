@@ -1,0 +1,120 @@
+---
+title: "Predictive Barbell Lifts"
+author: "Ted Powers"
+date: "December 12, 2015"
+output: html_document
+---
+
+###Summary
+In this project, data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants will be used.  From this data, the goal is to predict which of the 5 classes of dumbell lifts was performed and whether the exercise was performed correctly.  
+
+Installed package dependencies:
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+library(caret)
+```
+
+###Data
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+setwd("~/GitHub/machinelearning1")
+if (!dir.exists("data")) { dir.create("data")}
+
+if (!file.exists(paste(getwd(), "data", "train.csv", sep ="/"))) {
+        trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+        trainFile <- "train.csv"
+        trainFilePath <- paste(getwd(),"data", trainFile, sep = "/")
+         setInternet2(use = TRUE)
+        download.file(trainUrl, destfile = trainFilePath)
+        training <- read.csv(trainFilePath, na.strings = c("NA","#DIV/0!",""))
+}
+if (!file.exists(paste(getwd(), "data", "test.csv", sep ="/"))) {
+        testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+        testFile <- "test.csv"
+        testFilePath <- paste(getwd(),"data", testFile, sep = "/")
+        setInternet2(use = TRUE)
+        download.file(testUrl, destfile = testFilePath)
+        testing <- read.csv(testFilePath, na.strings = c("NA","#DIV/0!",""))
+}
+
+## load the file from disk only if it 
+## hasn't already been read into a variable
+if(!(exists("training"))) {
+        trainFile <- "train.csv"
+        trainFilePath <- paste(getwd(),"data", trainFile, sep = "/")
+        training <- read.csv(trainFilePath, na.strings = c("NA","#DIV/0!",""))
+}
+if(!(exists("testing"))) {
+        testFile <- "test.csv"
+        testFilePath <- paste(getwd(),"data", testFile, sep = "/")
+        testing <- read.csv(testFilePath, na.strings = c("NA","#DIV/0!",""))
+}
+```
+
+###Training-Set cleaning and pre-processing
+
+Names’s Coherence Check
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+all.equal(colnames(test)[1:length(colnames(test))-1], colnames(train)[1:length(colnames(train))-1])
+```
+
+To ease the computation and due to the low informativity loss, the dataset is cleaned from the variables with an high share of NAs and from the ones characterized by low variance.
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+nearzero <- nearZeroVar(train, saveMetrics = TRUE)
+train <- train[, !nearzero$nzv]
+```
+
+Variables with more than 50% missing values are removed
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+toberem <- sapply(colnames(train), function(x) if(sum(is.na(train[, x])) > 0.50*nrow(train))    {return(TRUE)
+}else{
+return(FALSE)
+}
+)
+train <- train[, !toberem]
+```
+
+Variables related with data acquisition (like: id, timestamps, individuals’ names, etc.) are not suitable to be used in prediction and are removed
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+train <- train[, -(1:6)]
+```
+
+Correlation analysis:
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+Hcorr <- caret::findCorrelation(cor(train[, -53]), cutoff=0.8)
+names(train)[Hcorr]
+```
+
+Many variables are highly correlated. PCA will be used in the pre-processing. After the data cleaning the variables selected to specify the model are:
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+names(train)
+```
+
+
+
+###Partioning the training set into two
+Partioning Training data set into two data sets, 60% for myTraining, 40% for myTesting:
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+inTrain <- createDataPartition(y=training$classe, p=0.6, list=FALSE)
+myTraining <- training[inTrain, ]; myTesting <- training[-inTrain, ]
+dim(myTraining); dim(myTesting)
+
+```
+
+```{r, echo=T, message=FALSE, warning=FALSE, results="as-is"}
+head(testing)
+head(training)
+
+```
