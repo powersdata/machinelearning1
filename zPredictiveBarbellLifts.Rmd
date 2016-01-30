@@ -1,0 +1,213 @@
+---
+title: "Predictive Barbell Lifts"
+author: "Ted Powers"
+date: "Jan 21, 2015"
+output: html_document
+---
+
+###Summary
+In this project, data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants will be used.  From this data, the goal is to predict which of the 5 classes of dumbell lifts was performed and whether the exercise was performed correctly.  
+
+In order to reproduce the same results, you need a certain set of packages, as well as setting a pseudo random seed equal to the one I used.
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+#library(klaR)
+#library(abind)
+#library(arm)
+library(caret)
+#library(ggplot2)
+library(randomForest)
+library(gbm)
+#library(kernlab)
+library(rattle)
+#library()
+
+set.seed(42)
+```
+
+
+###Data
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+setwd("~/GitHub/machinelearning1")
+if (!dir.exists("data")) { dir.create("data")}
+
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+trainFile <- "train.csv"
+trainFilePath <- paste(getwd(),"data", trainFile, sep = "/")
+
+testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+testFile <- "test.csv"
+testFilePath <- paste(getwd(),"data", testFile, sep = "/")
+
+## Download Files from internet only if not in data directory
+if (!file.exists(paste(getwd(), "data", "train.csv", sep ="/"))) {
+        setInternet2(use = TRUE)
+        download.file(trainUrl, destfile = trainFilePath)
+}
+
+if (!file.exists(paste(getwd(), "data", "test.csv", sep ="/"))) {
+        setInternet2(use = TRUE)
+        download.file(testUrl, destfile = testFilePath)
+}
+
+## load the file from disk only if it 
+## hasn't already been read into a variable
+if(!(exists("training"))) {
+        training <- read.csv(trainFilePath, na.strings = c("NA","#DIV/0!",""))
+}
+if(!(exists("test"))) {
+        test <- read.csv(testFilePath, na.strings = c("NA","#DIV/0!",""))
+}
+
+rm(testFile, testFilePath, testUrl, trainFile, trainFilePath, trainUrl)
+```
+
+###Training-Set cleaning and pre-processing
+
+####Names’s Coherence Check
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+#all.equal(colnames(test)[1:length(colnames(test))-1], colnames(training)[1:length(colnames(training))-1])
+```
+
+To ease the computation and due to the low informativity loss, the dataset is cleaned from the variables with an high share of NAs and from the ones characterized by low variance.
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+nearzero <- nearZeroVar(training, saveMetrics = TRUE)
+
+training_orig <- training
+
+training <- training[, !nearzero$nzv]
+
+```
+
+Variables with more than 30% missing values are removed
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+toberem <- sapply(colnames(training), function(x) if(sum(is.na(training[, x])) > 0.30*nrow(training))
+        {return(TRUE)}
+        else{return(FALSE)
+}
+)
+training_t1 <- training
+
+training <- training[, !toberem]
+```
+
+Variables related with data acquisition (like: id, timestamps, individuals’ names, etc.) are not suitable to be used in prediction and are removed
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+training_t2 <- training
+training <- training[, -(1:6)]
+```
+
+####Correlation analysis:
+Principle Component Analysis (PCA) will be used in the pre-processing. After the data cleaning the variables selected to specify the model are:
+
+
+###Partioning the training set into two
+Partioning Training data set into two data sets, 75% for training, 25% for testing:
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+inTrain <- createDataPartition(y=training$classe, p=.75, list=FALSE)
+
+training_t3 <- training
+testing <- training[-inTrain, ]
+training <- training[inTrain, ]
+dim(training); dim(testing)
+
+```
+
+```{r, echo=T, message=FALSE, warning=FALSE, results="as-is"}
+head(test)
+head(training)
+
+```
+
+##Model Specification and Cross Validation
+I selected three base models to cover a wide variety of possible distributions: Random Forest, Gradient Boosting, and Linear Discriminated Analysis model.  I also introduced a training control process to the three models as I wanted to see the effects of pre-processing the data in two areas:
+ - Principle Component Analysis (PCA) is used in the pre-processing in order to avoid overfitting by combining highly correlated fields.   
+ - Also, to reduce out of sample errors, TrainControl is used to perform 7-fold cross validation.
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+tc <- trainControl(method = "cv", number = 7, verboseIter=FALSE , preProcOptions="pca", allowParallel=TRUE)
+```
+
+Three base models are used: Random Forest with and without Cross Validation and Principle Component Analysis, Gradient Boosting with, Generalized linear model and a Linear Discriminated Analysis model.
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+rf.model <- suppressMessages(train(classe ~ ., data = training, method = "rf"))
+rf.cv.model <- suppressMessages(train(classe ~ ., data = training, method = "rf", trControl= tc))
+gbm.model <- suppressMessages(train(classe ~., data = training, method="gbm"))
+gbm.cv.model <- suppressMessages(train(classe ~., data = training, method="gbm", trControl = tc))
+lda.model <- suppressMessages(train(classe ~ ., data = training, method = "lda"))
+lda.cv.model <- suppressMessages(train(classe ~ ., data = training, method = "lda", trControl= tc))
+```
+
+Accuracy comparision
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+model <- c("Random Forest",  "Random Forest with CV", "Gradient Boosting", "Gradient Boosting with CV",
+           "Linear Discriminate Analysis", "Linear Discriminate Analysis with CV" )
+Accuracy <- c(
+        max(rf.model$results$Accuracy),
+        max(rf.cv.model$results$Accuracy),
+        max(gbm.model$results$Accuracy),
+        max(gbm.cv.model$results$Accuracy),
+        max(lda.model$results$Accuracy),
+        max(lda.cv.model$results$Accuracy)
+        )
+        
+performance <- cbind(model,Accuracy)
+knitr::kable(performance)
+```
+
+Random forest provides the best results and will provide the predictions for the submission. Even if the Out of sample error cannot be estimated exactly, the in-sample error obtained through cross-validation is calculated over different test sets and should provide a better estimate of out-of sample error with respect to the case of no cross-validation.
+
+##Prediction of “classe” variable for the test set
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+#rf.Pred <- predict(rf.model, testing)
+rf.cv.Pred <- predict(rf.cv.model, testing)
+gbm.cv.Pred <- predict(gbm.cv.model, testing)
+```
+
+Checking if the models give same predictions
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+#confusionMatrix(rf.Pred, testing$classe)
+confusionMatrix(rf.cv.Pred, testing$classe)
+confusionMatrix(gbm.cv.Pred, testing$classe)
+
+prediction <- data.frame(cbind(rfPred, svmrPred))
+prediction$same <- with(prediction, rfPred == svmrPred)
+colnames(prediction) <- c("Random Forest", "SVM (radial)", "Same Prediction")
+knitr::kable(prediction)
+```
+
+Generation of the files to be submitted is made through the provided function
+
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+pml_write_files = function(x){
+        n = length(x)
+        for(i in 1:n){
+                filename = paste0("problem_id_",i,".txt")
+                write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+        }
+}
+
+pml_write_files(rfPred)
+pml_write_files(svmrPred)
+```
+
+##Conclusions
+The random forest model provides an outstanding accuracy and, accordingly, the predictions for the test set were correct in 100% of the cases.
