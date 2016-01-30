@@ -177,7 +177,7 @@ confusionMatrix(rf.cv.Pred, testing$classe)
 
 ```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
 #Generation of the files to be submitted is made through the provided function
-n <- 20
+
 pml_write_files = function(x){
         n = length(x)
         for(i in 1:n){
