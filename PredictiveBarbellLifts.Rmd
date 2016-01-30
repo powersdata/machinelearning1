@@ -96,7 +96,7 @@ training <- training[inTrain, ]
 ###Model Preprocessing and Cross Validation
 All the predictors were plotted to identify any extreme values. An example is shown below. 9 row values were removed from the dataset.
 
-```{r, echo=T, message=FALSE, warning=FALSE, cache = FALSE, results="markup"}
+```{r, echo=T, message=FALSE, warning=FALSE, cache = FALSE, fig.width=6, fig.height=3.5, fig.align='center', results="markup"}
 # Explore plots to determine outliers
 par(mfrow = c(1, 2))
 for (i in 1:(ncol(training)-1)) {
@@ -177,17 +177,14 @@ confusionMatrix(rf.cv.Pred, testing$classe)
 
 ```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
 #Generation of the files to be submitted is made through the provided function
-
 pml_write_files = function(x){
         n = length(x)
         for(i in 1:n){
-                filename = paste0("problem_id_",i,".txt")
+                filename = paste0("data/problem_id_",i,".txt")
                 write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
         }
 }
-
 pml_write_files(rf.cv.Pred)
-#pml_write_files(svmrPred)
 ```
 
 ##Conclusions
