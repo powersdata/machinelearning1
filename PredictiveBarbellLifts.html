@@ -150,45 +150,70 @@ training &lt;- training[!out.rows, ]</code></pre>
 <div id="model-selection" class="section level3">
 <h3>Model Selection</h3>
 <p>Three base models to cover a wide variety of possible distributions are used: Random Forest, Gradient Boosting, and Linear Discriminated Analysis model.</p>
-<pre class="r"><code>rf.cv.model &lt;- suppressMessages(train(classe ~ ., data = training, method = &quot;rf&quot;, trControl= tc))
-gbm.cv.model &lt;- suppressMessages(train(classe ~., data = training, method=&quot;gbm&quot;, trControl = tc))
-lda.cv.model &lt;- suppressMessages(train(classe ~ ., data = training, method = &quot;lda&quot;, trControl= tc))</code></pre>
-<p>Maximum Accuracy comparision</p>
-<pre class="r"><code>model &lt;- c(&quot;Random Forest&quot;, &quot;Gradient Boosting&quot;, &quot;Linear Discriminate Analysis&quot; )
-Accuracy &lt;- c(
-        max(rf.cv.model$results$Accuracy),
-        max(gbm.cv.model$results$Accuracy),
-        max(lda.cv.model$results$Accuracy)
-        )</code></pre>
+<pre class="r"><code>rf.model &lt;- suppressMessages(train(classe ~ ., data = training, method = &quot;rf&quot;, trControl= tc))
+gbm.model &lt;- suppressMessages(train(classe ~., data = training, method=&quot;gbm&quot;, trControl = tc))
+lda.model &lt;- suppressMessages(train(classe ~ ., data = training, method = &quot;lda&quot;, trControl= tc))</code></pre>
+<p>Accuracy comparision and out of sample errors:</p>
 <table>
 <thead>
 <tr class="header">
 <th align="left">model</th>
-<th align="left">Accuracy</th>
+<th align="left">Best_Accuracy</th>
+<th align="left">Best_Accuracy_SD</th>
+<th align="left">Worst_Accuracy</th>
+<th align="left">Worst_Accuracy_SD</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td align="left">Random Forest</td>
 <td align="left">0.992045799687016</td>
+<td align="left">0.00216108141746844</td>
+<td align="left">0.983683306101313</td>
+<td align="left">0.00470791436489486</td>
 </tr>
 <tr class="even">
 <td align="left">Gradient Boosting</td>
 <td align="left">0.961520414206334</td>
+<td align="left">0.0026231067364868</td>
+<td align="left">0.752329633795886</td>
+<td align="left">0.012138294769189</td>
 </tr>
 <tr class="odd">
 <td align="left">Linear Discriminate Analysis</td>
 <td align="left">0.703041972843685</td>
+<td align="left">0.00903906645791683</td>
+<td align="left">0.703041972843685</td>
+<td align="left">0.00903906645791683</td>
 </tr>
 </tbody>
 </table>
-<p>Random forest provides the best results and will provide the predictions for the submission. Even if the Out of sample error cannot be estimated exactly, the in-sample error obtained through cross-validation is calculated over different test sets and should provide a better estimate of out-of sample error with respect to the case of no cross-validation.</p>
+<p>Best Model:</p>
+<pre><code>## Random Forest 
+## 
+## 14709 samples
+##    52 predictor
+##     5 classes: 'A', 'B', 'C', 'D', 'E' 
+## 
+## No pre-processing
+## Resampling: Cross-Validated (7 fold) 
+## Summary of sample sizes: 12607, 12607, 12609, 12607, 12607, 12607, ... 
+## Resampling results across tuning parameters:
+## 
+##   mtry  Accuracy   Kappa      Accuracy SD  Kappa SD   
+##    2    0.9914342  0.9891630  0.002161081  0.002735242
+##   27    0.9920458  0.9899372  0.003246938  0.004108193
+##   52    0.9836833  0.9793540  0.004707914  0.005959414
+## 
+## Accuracy was used to select the optimal model using  the largest value.
+## The final value used for the model was mtry = 27.</code></pre>
+<p>The random forest model method was the best model with the average accuracy of each of the 7 folds greater than 98.5%. In addition, the out-of-sample error was very low as the worst standard deviation average of the 7 folds was less than .35%.</p>
 </div>
-<div id="prediction-of-classe-variable-for-the-test-set" class="section level2">
-<h2>Prediction of “classe” variable for the test set</h2>
-<pre class="r"><code>rf.cv.Pred &lt;- predict(rf.cv.model, testing)</code></pre>
+<div id="prediction-of-classe-variable-for-the-test-set" class="section level3">
+<h3>Prediction of “classe” variable for the test set</h3>
+<pre class="r"><code>rf.Pred &lt;- predict(rf.model, testing)</code></pre>
 <p>Checking our Predictions with confusionMatrix:</p>
-<pre class="r"><code>confusionMatrix(rf.cv.Pred, testing$classe)</code></pre>
+<pre class="r"><code>confusionMatrix(rf.Pred, testing$classe)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference

@@ -140,52 +140,62 @@ rm(testFile, testFilePath, testUrl, trainFile, trainFilePath, trainUrl, preObj, 
 Three base models to cover a wide variety of possible distributions are used: Random Forest, Gradient Boosting, and Linear Discriminated Analysis model. 
 
 ```{r, echo=T, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
-rf.cv.model <- suppressMessages(train(classe ~ ., data = training, method = "rf", trControl= tc))
-gbm.cv.model <- suppressMessages(train(classe ~., data = training, method="gbm", trControl = tc))
-lda.cv.model <- suppressMessages(train(classe ~ ., data = training, method = "lda", trControl= tc))
+rf.model <- suppressMessages(train(classe ~ ., data = training, method = "rf", trControl= tc))
+gbm.model <- suppressMessages(train(classe ~., data = training, method="gbm", trControl = tc))
+lda.model <- suppressMessages(train(classe ~ ., data = training, method = "lda", trControl= tc))
 ```
 
-Maximum Accuracy comparision
-
-```{r, echo=T, message=FALSE, warning=FALSE, cache = FALSE, results="asis"}
+```{r, echo=F, message=FALSE, warning=FALSE, cache = FALSE, results="hide"}
 model <- c("Random Forest", "Gradient Boosting", "Linear Discriminate Analysis" )
-Accuracy <- c(
-        max(rf.cv.model$results$Accuracy),
-        max(gbm.cv.model$results$Accuracy),
-        max(lda.cv.model$results$Accuracy)
+Best_Accuracy <- c(
+        max(rf.model$results$Accuracy),
+        max(gbm.model$results$Accuracy),
+        max(lda.model$results$Accuracy)
+        )
+Worst_Accuracy_SD <- c(
+        max(rf.model$results$AccuracySD),
+        max(gbm.model$results$AccuracySD),
+        max(lda.model$results$AccuracySD)
+        )
+Worst_Accuracy <- c(
+        min(rf.model$results$Accuracy),
+        min(gbm.model$results$Accuracy),
+        min(lda.model$results$Accuracy)
+        )
+Best_Accuracy_SD <- c(
+        min(rf.model$results$AccuracySD),
+        min(gbm.model$results$AccuracySD),
+        min(lda.model$results$AccuracySD)
         )
 ```
 
+Accuracy comparision and out of sample errors:
 ```{r, echo=F, message=FALSE, warning=FALSE, cache = FALSE, results="asis"}
-performance <- cbind(model,Accuracy)
+performance <- cbind(model, Best_Accuracy, Best_Accuracy_SD, Worst_Accuracy, Worst_Accuracy_SD)
 knitr::kable(performance)
 ```
 
-Random forest provides the best results and will provide the predictions for the submission. Even if the Out of sample error cannot be estimated exactly, the in-sample error obtained through cross-validation is calculated over different test sets and should provide a better estimate of out-of sample error with respect to the case of no cross-validation.
+Best Model:
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="markup"}
+rf.model
+```
 
-##Prediction of “classe” variable for the test set
+The random forest model method was the best model with the average accuracy of each of the 7 folds greater than 98.5%.  In addition, the out-of-sample error was very low as the worst standard deviation average of the 7 folds was less than .35%.  
+
+###Prediction of “classe” variable for the test set
 
 ```{r, echo=T, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
-rf.cv.Pred <- predict(rf.cv.model, testing)
+rf.Pred <- predict(rf.model, testing)
 ```
 
 Checking our Predictions with confusionMatrix:
 
 ```{r, echo=T, message=FALSE, warning=FALSE, cache = TRUE, results="markup"}
-confusionMatrix(rf.cv.Pred, testing$classe)
-```
-
-```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
-#Generation of the files to be submitted is made through the provided function
-pml_write_files = function(x){
-        n = length(x)
-        for(i in 1:n){
-                filename = paste0("data/problem_id_",i,".txt")
-                write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
-        }
-}
-pml_write_files(rf.cv.Pred)
+confusionMatrix(rf.Pred, testing$classe)
 ```
 
 ##Conclusions
+```{r, echo=F, message=FALSE, warning=FALSE, cache = TRUE, results="hide"}
+rf.Pred.test <- predict(rf.model, test)
+```
 The random forest model provides an outstanding accuracy and, accordingly, the predictions for the test set were correct in 100% of the cases.
